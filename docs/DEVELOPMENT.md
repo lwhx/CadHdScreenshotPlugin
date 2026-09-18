@@ -13,6 +13,7 @@
 - Windows 10/11 x64
 - AutoCAD 2024 x64 正版
 - Visual Studio 2022
+- .NET SDK（用于解析 SDK 风格项目；只有 .NET Runtime 或 MSBuild 不足以构建）
 - .NET Framework 4.8 Developer Pack / Targeting Pack
 - Git
 - PowerShell 5.1+
@@ -98,6 +99,14 @@ docs/
 .\eng\build.ps1
 ```
 
+只开发或验证不依赖 AutoCAD 的 Core 时执行：
+
+```powershell
+.\eng\test-core.ps1
+```
+
+该脚本会自动定位 Visual Studio/Build Tools 中的 MSBuild 和 VSTest，不要求从 Developer PowerShell 启动。
+
 脚本会：
 
 1. 检查 AutoCAD 2024 DLL 是否存在。
@@ -111,6 +120,8 @@ docs/
 ```powershell
 .\eng\build.ps1 -AutoCAD2024Dir "D:\Autodesk\AutoCAD 2024"
 ```
+
+未传入 `-AutoCAD2024Dir` 时，脚本会查询 AutoCAD 2024 (`R24.3`) 注册表并检查常见安装目录。
 
 预期产物：
 
@@ -128,6 +139,18 @@ artifacts\CadHdScreenshot.bundle\
 
 ```text
 %APPDATA%\Autodesk\ApplicationPlugins\CadHdScreenshot.bundle
+```
+
+也可以使用当前用户安装脚本：
+
+```powershell
+.\eng\install-user.ps1
+```
+
+卸载：
+
+```powershell
+.\eng\uninstall-user.ps1
 ```
 
 然后重新启动 AutoCAD 2024。
@@ -271,4 +294,4 @@ AutoCAD API 集成无法纯单测的部分，必须有对应的实机验证步�
 feature/cad-hd-screenshot
 ```
 
-当前阶段：项目骨架已创建，下一步先验证基础构建环境，然后实现像素倍率核心逻辑。
+当前阶段：Core、AutoCAD 选择交互、屏幕像素映射、GraphicsSystem 离屏渲染、Ribbon、非模态窗口、文件与剪贴板输出均已实现。下一步必须在安装 AutoCAD 2024 的实机上逐项执行 `docs/TESTING.md`，重点验证 RasterImage、Dimension、3× 真实细节和异常后的视图恢复。

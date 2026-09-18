@@ -4,7 +4,7 @@ AutoCAD 2024 x64 高清截图插件，用于家具户型方案截图。
 
 核心场景：在 AutoCAD 模型空间中将客户户型图（DWG 或插入的 JPG/PNG RasterImage）、沙发 CAD 模型和尺寸标注一起以 2×/3× 真正高分辨率重新渲染并导出为 PNG/JPG，便于发送给客户确认摆放方案。
 
-> 当前状态：设计已确认，项目骨架已建立，正在进行 AutoCAD 2024 实机构建与核心截图能力开发。
+> 当前状态：Core、Ribbon、非模态窗口、选择交互、GraphicsSystem 离屏渲染、图片输出与安装脚本均已实现；等待 AutoCAD 2024 实机完成验收清单。
 
 ## 文档
 
@@ -33,3 +33,11 @@ git checkout feature/cad-hd-screenshot
 ```powershell
 .\eng\build.ps1
 ```
+
+构建完成后直接更新到当前用户的 AutoCAD 插件目录：
+
+```powershell
+.\eng\build.ps1 -Install
+```
+
+安装前需关闭 AutoCAD，脚本会将最新 bundle 写入 `%APPDATA%\Autodesk\ApplicationPlugins`。

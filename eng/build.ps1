@@ -1,11 +1,16 @@
 param(
     [string]$Configuration = "Release",
-    [string]$AutoCAD2024Dir = "C:\Program Files\Autodesk\AutoCAD 2024"
+    [string]$AutoCAD2024Dir,
+    [switch]$Install
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $required = @("AcCoreMgd.dll", "AcDbMgd.dll", "AcMgd.dll", "AdWindows.dll")
+. "$PSScriptRoot\common.ps1"
+
+$AutoCAD2024Dir = Find-AutoCAD2024 $AutoCAD2024Dir
+Write-Host "AutoCAD 2024: $AutoCAD2024Dir"
 
 foreach ($dll in $required) {
     $path = Join-Path $AutoCAD2024Dir $dll
@@ -14,19 +19,20 @@ foreach ($dll in $required) {
     }
 }
 
-dotnet restore "$root\CadHdScreenshotPlugin.sln"
-if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed with exit code $LASTEXITCODE" }
+& "$PSScriptRoot\test-core.ps1" -Configuration $Configuration
 
-dotnet test "$root\tests\CadHdScreenshot.Core.Tests\CadHdScreenshot.Core.Tests.csproj" -c $Configuration --no-restore
-if ($LASTEXITCODE -ne 0) { throw "dotnet test failed with exit code $LASTEXITCODE" }
+$dotnet = Find-DotNetSdk
+$autoCadProperty = "-p:AutoCAD2024Dir=$AutoCAD2024Dir"
 
-$msbuild = (Get-Command msbuild -ErrorAction SilentlyContinue)
-if (-not $msbuild) {
-    throw "MSBuild was not found. Run this script from a Visual Studio 2022 Developer PowerShell or add MSBuild to PATH."
+if ($dotnet) {
+    & $dotnet build "$root\CadHdScreenshotPlugin.sln" -c $Configuration $autoCadProperty
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit code $LASTEXITCODE" }
 }
-
-& $msbuild.Source "$root\CadHdScreenshotPlugin.sln" /m /p:Configuration=$Configuration /p:AutoCAD2024Dir="$AutoCAD2024Dir"
-if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
+else {
+    $msbuild = Find-MSBuild
+    & $msbuild "$root\CadHdScreenshotPlugin.sln" /restore /m /p:Configuration=$Configuration "/p:AutoCAD2024Dir=$AutoCAD2024Dir"
+    if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
+}
 
 $bundle = "$root\artifacts\CadHdScreenshot.bundle"
 Remove-Item $bundle -Recurse -Force -ErrorAction SilentlyContinue
@@ -35,3 +41,11 @@ Copy-Item "$root\packaging\CadHdScreenshot.bundle\PackageContents.xml" "$bundle\
 Copy-Item "$root\src\CadHdScreenshot.Plugin\bin\$Configuration\net48\CadHdScreenshot.Plugin.dll" "$bundle\Contents\Windows\"
 Copy-Item "$root\src\CadHdScreenshot.Core\bin\$Configuration\net48\CadHdScreenshot.Core.dll" "$bundle\Contents\Windows\"
 Write-Host "Bundle created: $bundle"
+
+if ($Install) {
+    if (Get-Process acad -ErrorAction SilentlyContinue) {
+        throw "AutoCAD is running. Close AutoCAD before installing the updated plug-in."
+    }
+
+    & "$PSScriptRoot\install-user.ps1" -BundlePath $bundle
+}

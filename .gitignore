@@ -13,3 +13,7 @@ TestResults/
 
 # Local worktrees
 .worktrees/
+
+# AutoCAD 运行时崩溃日志（本机生成，不纳入版本库）
+acad.err
+acad.err.*

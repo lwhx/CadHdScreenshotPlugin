@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>CadHdScreenshot.RenderSmoke</AssemblyName>
+    <AutoCAD2024Dir Condition="'$(AutoCAD2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCAD2024Dir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CadHdScreenshot.Core\CadHdScreenshot.Core.csproj" />
+    <Compile Include="..\..\src\CadHdScreenshot.Plugin\AutoCadOffscreenRenderer.cs" Link="Subject\AutoCadOffscreenRenderer.cs" />
+    <Compile Include="..\..\src\CadHdScreenshot.Plugin\CaptureSelection.cs" Link="Subject\CaptureSelection.cs" />
+    <Reference Include="AcCoreMgd"><HintPath>$(AutoCAD2024Dir)\AcCoreMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCAD2024Dir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcMgd"><HintPath>$(AutoCAD2024Dir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+</Project>

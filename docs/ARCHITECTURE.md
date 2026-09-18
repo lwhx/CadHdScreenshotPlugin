@@ -31,7 +31,6 @@ AutoCAD GraphicsSystem 离屏渲染
    +-- PNG/JPG 编码
    |
    +--> 自动保存
-   +--> 另存为
    +--> Windows 剪贴板
 ```
 

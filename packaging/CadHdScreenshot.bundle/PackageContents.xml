@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="1.0.0"
+                    AppVersion="1.2.1"
                     ProductCode="{6A79C3E8-611C-4D8E-A92F-14A2D239BA35}"
                     Name="CadHdScreenshot">
   <CompanyDetails Name="Local" />
