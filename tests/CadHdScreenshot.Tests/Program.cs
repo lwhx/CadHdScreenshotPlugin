@@ -149,6 +149,24 @@ internal static class Program
         Test("recognized command line uses English", () => {
             Equal(InputMode.English, InputClassifier.Classify(new FocusFacts { Owned = true, CommandLine = true, UnknownEdit = true }).Desired);
         });
+        Test("AutoCAD AutoCompleteEdit command line is English, not a preserved dialog", () => {
+            // Observed in ime.log: the command line is a TextBox named
+            // local:AutoCompleteEdit_1 inside CommandLineControl. Before the
+            // probe learned those names it fell into UnknownDialog/preserve
+            // and the user kept typing Chinese.
+            var context = InputClassifier.Classify(new FocusFacts
+            {
+                Owned = true, CommandLine = true, UnknownEdit = true, DocumentSession = "1"
+            });
+            Equal(InputMode.English, context.Desired);
+            Equal(InputScene.CommandLine, context.Scene);
+        });
+        Test("unrecognized palette Edit stays preserved", () => {
+            Equal(InputMode.Preserve, InputClassifier.Classify(new FocusFacts
+            {
+                Owned = true, UnknownEdit = true, DocumentSession = "1"
+            }).Desired);
+        });
         Test("drawing and command-line focus share manual override", () => {
             var a = InputClassifier.Classify(new FocusFacts { Owned = true, Drawing = true, DocumentSession = "1" });
             var b = InputClassifier.Classify(new FocusFacts { Owned = true, CommandLine = true, DocumentSession = "1" });

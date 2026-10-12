@@ -71,7 +71,15 @@ namespace CadHdScreenshot.Plugin.InputMethod
                     // File name Edit/ComboBox in the standard Windows file picker.
                     if (depth > 0 && (id == "1148" || id == "FileNameControlHost")) nameHost = true;
                     if (cls == "DirectUIHWND") fileDialog = true;
-                    if (cls == "AcCommandLine" || cls == "AcCmdLine" || id == "CommandLineInput") result.CommandLine = true;
+                    // AutoCAD's command line input surfaces as a TextBox named
+                    // "local:AutoCompleteEdit_N" inside a Custom element named
+                    // "CommandLineControl". Older builds exposed "AcCommandLine"
+                    // or "CommandLineInput" instead, so accept every variant.
+                    if (cls == "AcCommandLine" || cls == "AcCmdLine" ||
+                        id == "CommandLineInput" ||
+                        id.StartsWith("local:AutoCompleteEdit", StringComparison.OrdinalIgnoreCase) ||
+                        id.StartsWith("CommandLineControl", StringComparison.OrdinalIgnoreCase))
+                        result.CommandLine = true;
                     // Log an allowlisted classification, not arbitrary provider-supplied strings.
                     // Class names and control ids are technical metadata, never UI Name/Value/Text.
                     chain.Add(info.ControlType.ProgrammaticName + ":" + cls + ":id=" + id);
