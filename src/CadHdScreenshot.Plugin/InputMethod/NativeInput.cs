@@ -30,6 +30,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
         [DllImport("user32.dll")] internal static extern IntPtr GetKeyboardLayout(uint thread);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern IntPtr LoadKeyboardLayout(string id, uint flags);
         [DllImport("user32.dll")] internal static extern IntPtr ActivateKeyboardLayout(uint thread, IntPtr hkl);
+        [DllImport("user32.dll")] internal static extern uint IsKeyboardLayoutAvailable(uint id);
         [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
         [DllImport("imm32.dll")] internal static extern IntPtr ImmGetContext(IntPtr hwnd);
         [DllImport("imm32.dll")] internal static extern bool ImmReleaseContext(IntPtr hwnd, IntPtr context);

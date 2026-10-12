@@ -12,6 +12,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
         private ITfCompartment conversion, open;
         private uint client, thread;
         private bool activated;
+        private IntPtr savedLayout;
         internal string Backend { get; private set; } = "未检测";
 
         internal void Initialize()
@@ -35,10 +36,45 @@ namespace CadHdScreenshot.Plugin.InputMethod
             return ((long)NativeInput.GetKeyboardLayout(focusThread) & 0x3ff) == 4;
         }
 
+        // English (US) layout id 0x04090409, Chinese (Simplified) 0x08040404.
+        // The low word is the language id, so English and Chinese layouts
+        // differ even when an IME is attached to the Chinese one.
+        private const uint EnglishLayout = 0x04090409;
+        private const uint ChineseLayoutId = 0x08040404;
+
+        private static bool IsEnglishLayout(uint focusThread)
+        {
+            return (uint)NativeInput.GetKeyboardLayout(focusThread) == EnglishLayout;
+        }
+
+        /// <summary>
+        /// Activating a keyboard layout is the only switch every IME honours.
+        /// WeChat and Sogou both ignore TSF compartments and IMM32 conversion
+        /// flags for their real state, but they follow the active layout.
+        /// Returns true when the layout was changed.
+        /// </summary>
+        private static bool SwitchLayout(uint focusThread, InputMode target)
+        {
+            uint desired = target == InputMode.English ? EnglishLayout : ChineseLayoutId;
+            var current = NativeInput.GetKeyboardLayout(focusThread);
+            if ((uint)current == desired) return true;
+
+            var loaded = NativeInput.LoadKeyboardLayout(desired.ToString("X8"), 1u /*KLFLT_LOADER_BYNAME*/);
+            if (loaded == IntPtr.Zero)
+            {
+                // Fall back to the language-neutral form ("00000409").
+                loaded = NativeInput.LoadKeyboardLayout(target == InputMode.English ? "00000409" : "00000804", 1u);
+            }
+            if (loaded == IntPtr.Zero) return false;
+            return NativeInput.ActivateKeyboardLayout(focusThread, loaded) != IntPtr.Zero;
+        }
+
         internal InputMode Read(IntPtr hwnd)
         {
             uint pid;
             var focusThread = NativeInput.GetWindowThreadProcessId(hwnd, out pid);
+            // A plain English layout has no IME, so there is nothing to query.
+            if (IsEnglishLayout(focusThread)) { Backend = "英文布局"; return InputMode.English; }
             if (!ChineseLayout(focusThread)) { Backend = "当前不是中文输入法（保持原输入法）"; return InputMode.Unknown; }
             // Prefer IMM32 so the reported mode matches what the IME produces.
             var immMode = ReadWithImm32(hwnd);
@@ -79,7 +115,36 @@ namespace CadHdScreenshot.Plugin.InputMethod
             if (target != InputMode.Chinese && target != InputMode.English) return false;
             uint pid;
             uint focusThread = NativeInput.GetWindowThreadProcessId(hwnd, out pid);
-            if (!ChineseLayout(focusThread)) return false;
+
+            // English is requested for command entry, so drive the keyboard
+            // layout. Chinese text entry must restore the user's own layout
+            // rather than force a specific one.
+            if (target == InputMode.English)
+            {
+                if (savedLayout == IntPtr.Zero) savedLayout = NativeInput.GetKeyboardLayout(focusThread);
+                bool switched = SwitchLayout(focusThread, InputMode.English);
+                int tsfFlags, tsfOpened;
+                if (focusThread == thread && TryTsf(out tsfFlags, out tsfOpened))
+                {
+                    try
+                    {
+                        object value = tsfFlags & ~9;
+                        conversion.SetValue(client, ref value);
+                    }
+                    catch (COMException) { }
+                }
+                verified = IsEnglishLayout(focusThread) ? InputMode.English :
+                    (ChineseLayout(focusThread) ? Read(hwnd) : InputMode.Unknown);
+                return switched && verified == InputMode.English;
+            }
+
+            // Chinese: restore whatever layout the user had before we switched.
+            if (savedLayout != IntPtr.Zero)
+            {
+                NativeInput.ActivateKeyboardLayout(focusThread, savedLayout);
+                savedLayout = IntPtr.Zero;
+            }
+            if (!ChineseLayout(focusThread)) { verified = InputMode.English; return true; }
 
             // IMM32 is the switch the IME itself honours. TSF compartments are
             // only a side channel: writing them can report success while the
