@@ -199,7 +199,8 @@
             <GroupBox BorderBrush="#D0D5DC" Header="智能输入法切换">
               <StackPanel Margin="12">
                 <CheckBox Content="启用 CAD 智能输入法切换" FontSize="14" FontWeight="SemiBold" Margin="0,3,0,12" IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <TextBlock Text="开关立即生效，自动记住设置。关闭后停止检测和切换；关闭工具面板不影响已启用的功能。" Foreground="#5C6673" TextWrapping="Wrap" LineHeight="21" />
+                <TextBlock Text="CAD 在前台时切换为英文键盘布局，方便直接输入命令；切到其他软件时自动还原你原来的中文输入法。" Foreground="#5C6673" TextWrapping="Wrap" LineHeight="21" />
+                <TextBlock Text="开关立即生效，自动记住设置。关闭后停止检测和切换，并立即还原中文输入法；关闭工具面板不影响已启用的功能。" Foreground="#5C6673" TextWrapping="Wrap" LineHeight="21" Margin="0,6,0,0" />
               </StackPanel>
             </GroupBox>
             <Border Margin="0,12,0,0" Padding="12" Background="#F7FAFC" BorderBrush="#D0D5DC" BorderThickness="1">

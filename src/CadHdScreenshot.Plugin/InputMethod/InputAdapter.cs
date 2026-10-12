@@ -13,7 +13,24 @@ namespace CadHdScreenshot.Plugin.InputMethod
         private uint client, thread;
         private bool activated;
         private IntPtr savedLayout;
+        private uint savedLayoutThread;
         internal string Backend { get; private set; } = "未检测";
+
+        /// <summary>
+        /// Restores the keyboard layout captured before we switched to English.
+        /// Safe to call repeatedly; it does nothing once the layout is back.
+        /// </summary>
+        internal void RestoreLayout()
+        {
+            if (savedLayout == IntPtr.Zero) return;
+            // The layout is per-thread, so restore on the thread that owned it
+            // before we switched, not on whichever thread is current now.
+            uint target = savedLayoutThread != 0 ? savedLayoutThread : NativeInput.GetCurrentThreadId();
+            NativeInput.ActivateKeyboardLayout(target, savedLayout);
+            savedLayout = IntPtr.Zero;
+        }
+
+        internal bool HasSavedLayout => savedLayout != IntPtr.Zero;
 
         internal void Initialize()
         {
@@ -121,7 +138,11 @@ namespace CadHdScreenshot.Plugin.InputMethod
             // rather than force a specific one.
             if (target == InputMode.English)
             {
-                if (savedLayout == IntPtr.Zero) savedLayout = NativeInput.GetKeyboardLayout(focusThread);
+                if (savedLayout == IntPtr.Zero)
+                {
+                    savedLayout = NativeInput.GetKeyboardLayout(focusThread);
+                    savedLayoutThread = focusThread;
+                }
                 bool switched = SwitchLayout(focusThread, InputMode.English);
                 int tsfFlags, tsfOpened;
                 if (focusThread == thread && TryTsf(out tsfFlags, out tsfOpened))

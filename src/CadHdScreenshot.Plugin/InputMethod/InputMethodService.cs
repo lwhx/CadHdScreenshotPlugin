@@ -103,6 +103,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
             CadApp.DocumentManager.DocumentActivated -= OnDocumentActivated;
             CadApp.DocumentManager.DocumentToBeDestroyed -= OnDocumentDestroyed;
             Attach(null);
+            adapter?.RestoreLayout();
             adapter?.Dispose(); adapter = null;
             policy.Reset(); probe.Reset();
             pointerWasInside = false;
@@ -162,7 +163,16 @@ namespace CadHdScreenshot.Plugin.InputMethod
             var foreground = NativeInput.GetForegroundWindow();
             uint owner;
             uint focusThread = NativeInput.GetWindowThreadProcessId(foreground, out owner);
-            if (owner != processId) { pointerWasInside = false; Status = "已启用 · CAD 在后台，暂停切换"; Detail = "场景：其他软件（保持）"; return; }
+            if (owner != processId)
+            {
+                // CAD lost the foreground: give the user's Chinese input back
+                // so Ctrl+Shift and normal typing work outside CAD again.
+                adapter.RestoreLayout();
+                pointerWasInside = false;
+                Status = "已启用 · CAD 在后台，已还原中文输入法";
+                Detail = "场景：其他软件（已还原）";
+                return;
+            }
             var mainWindow = CadApp.MainWindow.Handle;
             bool pointerInside = PointerInsideMainWindow(mainWindow);
             if (pointerInside && !pointerWasInside) pointerSession++;
