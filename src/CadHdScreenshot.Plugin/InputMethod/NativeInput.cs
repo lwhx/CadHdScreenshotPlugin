@@ -28,6 +28,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
         [DllImport("user32.dll")] internal static extern bool IsWindow(IntPtr hwnd);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder text, int count);
         [DllImport("user32.dll")] internal static extern IntPtr GetKeyboardLayout(uint thread);
+        [DllImport("user32.dll")] internal static extern IntPtr ActivateKeyboardLayout(IntPtr hkl, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         internal static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr wparam,
             IntPtr lparam, uint flags, uint timeout, out IntPtr result);

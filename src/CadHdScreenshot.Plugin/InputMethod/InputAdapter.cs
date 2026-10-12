@@ -135,6 +135,11 @@ namespace CadHdScreenshot.Plugin.InputMethod
             var focus = NativeInput.Focus(focusThread);
             if (focus == IntPtr.Zero) focus = NativeInput.GetForegroundWindow();
             if (focus == IntPtr.Zero) return false;
+            // AutoCAD's editor sometimes ignores WM_INPUTLANGCHANGEREQUEST
+            // while its native drawing surface owns focus. The plugin runs on
+            // the AutoCAD UI thread, so activate the layout directly there.
+            if (focusThread == thread)
+                NativeInput.ActivateKeyboardLayout(desired, 0);
             RequestLanguage(focus, focusThread, desired);
             return true;
         }
