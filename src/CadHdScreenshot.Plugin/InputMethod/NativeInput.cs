@@ -28,6 +28,8 @@ namespace CadHdScreenshot.Plugin.InputMethod
         [DllImport("user32.dll")] internal static extern bool IsWindow(IntPtr hwnd);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder text, int count);
         [DllImport("user32.dll")] internal static extern IntPtr GetKeyboardLayout(uint thread);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern IntPtr LoadKeyboardLayout(string id, uint flags);
+        [DllImport("user32.dll")] internal static extern IntPtr ActivateKeyboardLayout(uint thread, IntPtr hkl);
         [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
         [DllImport("imm32.dll")] internal static extern IntPtr ImmGetContext(IntPtr hwnd);
         [DllImport("imm32.dll")] internal static extern bool ImmReleaseContext(IntPtr hwnd, IntPtr context);
@@ -35,6 +37,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
         [DllImport("imm32.dll")] internal static extern bool ImmSetOpenStatus(IntPtr context, bool open);
         [DllImport("imm32.dll")] internal static extern bool ImmGetConversionStatus(IntPtr context, out uint conversion, out uint sentence);
         [DllImport("imm32.dll")] internal static extern bool ImmSetConversionStatus(IntPtr context, uint conversion, uint sentence);
+        [DllImport("imm32.dll")] internal static extern bool ImmNotifyIME(IntPtr context, uint action, uint index, IntPtr value);
         internal static string ClassName(IntPtr hwnd)
         {
             var text = new StringBuilder(256);

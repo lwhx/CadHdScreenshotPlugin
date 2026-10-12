@@ -40,20 +40,34 @@ namespace CadHdScreenshot.Plugin.InputMethod
             uint pid;
             var focusThread = NativeInput.GetWindowThreadProcessId(hwnd, out pid);
             if (!ChineseLayout(focusThread)) { Backend = "当前不是中文输入法（保持原输入法）"; return InputMode.Unknown; }
-            int flags, opened;
-            if (focusThread == thread && TryTsf(out flags, out opened))
+            // Prefer IMM32 so the reported mode matches what the IME produces.
+            var immMode = ReadWithImm32(hwnd);
+            if (immMode != InputMode.Unknown)
+            {
+                Backend = "IMM32";
+                return immMode;
+            }
+            int flags = 0, opened = 0;
+            bool tsfReadable = false;
+            if (focusThread == thread) tsfReadable = TryTsf(out flags, out opened);
+            if (tsfReadable)
             {
                 Backend = "TSF";
                 return Mode(flags, opened != 0);
             }
+            Backend = "无可用输入上下文";
+            return InputMode.Unknown;
+        }
+
+        private static InputMode ReadWithImm32(IntPtr hwnd)
+        {
             var context = NativeInput.ImmGetContext(hwnd);
-            if (context == IntPtr.Zero) { Backend = "无可用输入上下文"; return InputMode.Unknown; }
+            if (context == IntPtr.Zero) return InputMode.Unknown;
             try
             {
                 uint conv, sentence;
                 if (!NativeInput.ImmGetConversionStatus(context, out conv, out sentence))
-                { Backend = "输入法未公开可查询的状态"; return InputMode.Unknown; }
-                Backend = "IMM32";
+                    return InputMode.Unknown;
                 return Mode((int)conv, NativeInput.ImmGetOpenStatus(context));
             }
             finally { NativeInput.ImmReleaseContext(hwnd, context); }
@@ -66,20 +80,42 @@ namespace CadHdScreenshot.Plugin.InputMethod
             uint pid;
             uint focusThread = NativeInput.GetWindowThreadProcessId(hwnd, out pid);
             if (!ChineseLayout(focusThread)) return false;
-            int flags, opened;
-            if (focusThread == thread && TryTsf(out flags, out opened))
+
+            // IMM32 is the switch the IME itself honours. TSF compartments are
+            // only a side channel: writing them can report success while the
+            // candidate window and the keyboard layout stay Chinese, which is
+            // what WeChat/Sogou do. So drive IMM32 first and treat TSF as a
+            // follow-up hint, never as the confirming read.
+            bool immApplied = SwitchWithImm32(hwnd, target);
+
+            int flags = 0, opened = 0;
+            bool tsfAvailable = false;
+            if (focusThread == thread) tsfAvailable = TryTsf(out flags, out opened);
+            if (tsfAvailable)
             {
-                // Keep the current IME/profile. Only change native/alphanumeric mode.
-                object value = target == InputMode.Chinese ? (flags | 1) : (flags & ~9);
-                if (target == InputMode.Chinese && opened == 0)
+                try
                 {
-                    object enabled = 1;
-                    if (open.SetValue(client, ref enabled) != 0) return false;
+                    object value = target == InputMode.Chinese ? (flags | 1) : (flags & ~9);
+                    if (target == InputMode.Chinese && opened == 0)
+                    {
+                        object enabled = 1;
+                        open.SetValue(client, ref enabled);
+                    }
+                    conversion.SetValue(client, ref value);
                 }
-                if (conversion.SetValue(client, ref value) != 0) return false;
-                verified = Read(hwnd);
-                return verified == target;
+                catch (COMException) { }
             }
+
+            // Confirm against IMM32. If IMM32 could not be read, fall back to
+            // the layout, which reflects what the IME actually receives.
+            verified = Read(hwnd);
+            if (verified == InputMode.Unknown) verified = ReadLayoutMode(focusThread, target);
+            if (verified != target) return false;
+            return immApplied || tsfAvailable;
+        }
+
+        private static bool SwitchWithImm32(IntPtr hwnd, InputMode target)
+        {
             var context = NativeInput.ImmGetContext(hwnd);
             if (context == IntPtr.Zero) return false;
             try
@@ -90,10 +126,19 @@ namespace CadHdScreenshot.Plugin.InputMethod
                     !NativeInput.ImmSetOpenStatus(context, true)) return false;
                 var desired = target == InputMode.Chinese ? (conv | 1u) : (conv & ~9u);
                 if (!NativeInput.ImmSetConversionStatus(context, desired, sentence)) return false;
+                // Commit any half-typed composition so the next key is not
+                // swallowed by a pending candidate window.
+                NativeInput.ImmNotifyIME(context, 0x06, 0, IntPtr.Zero);
+                return true;
             }
             finally { NativeInput.ImmReleaseContext(hwnd, context); }
-            verified = Read(hwnd);
-            return verified == target;
+        }
+
+        private InputMode ReadLayoutMode(uint focusThread, InputMode target)
+        {
+            // The layout identifies the profile, not the per-mode state, so it
+            // can only confirm that a Chinese-capable layout is still active.
+            return ChineseLayout(focusThread) ? target : InputMode.Unknown;
         }
 
         private bool TryTsf(out int flags, out int opened)
