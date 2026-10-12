@@ -103,6 +103,10 @@ namespace CadHdScreenshot.Core.InputMethod
                 observed = verified;
                 pending = InputMode.Unknown;
             }
+            // The target thread applies an input-language request
+            // asynchronously, so a confirmed write can still report Unknown.
+            // Trust the write and let the next poll observe the settled state.
+            else if (success && verified == InputMode.Unknown) pending = InputMode.Unknown;
             else nextAttempt = Math.Max(nextAttempt, milliseconds + 1500);
         }
 
