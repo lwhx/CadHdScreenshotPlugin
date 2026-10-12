@@ -6,11 +6,17 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot\common.ps1"
 
-$testProject = "$root\tests\CadHdScreenshot.Core.Tests\CadHdScreenshot.Core.Tests.csproj"
+$testProject = "$root\tests\CadHdScreenshot.Tests\CadHdScreenshot.Tests.csproj"
 $dotnet = Find-DotNetSdk
 
 if ($dotnet) {
-    & $dotnet test $testProject -c $Configuration
+    & $dotnet build $testProject -c $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        throw "Core test build failed with exit code $LASTEXITCODE"
+    }
+
+    $testAssembly = "$root\tests\CadHdScreenshot.Tests\bin\$Configuration\net48\CadHdScreenshot.Tests.exe"
+    & $testAssembly
     if ($LASTEXITCODE -ne 0) {
         throw "Core tests failed with exit code $LASTEXITCODE"
     }
@@ -24,9 +30,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "Core test build failed with exit code $LASTEXITCODE"
 }
 
-$vstest = Find-VSTest
-$testAssembly = "$root\tests\CadHdScreenshot.Core.Tests\bin\$Configuration\net48\CadHdScreenshot.Core.Tests.dll"
-& $vstest $testAssembly
+$testAssembly = "$root\tests\CadHdScreenshot.Tests\bin\$Configuration\net48\CadHdScreenshot.Tests.exe"
+& $testAssembly
 if ($LASTEXITCODE -ne 0) {
     throw "Core tests failed with exit code $LASTEXITCODE"
 }

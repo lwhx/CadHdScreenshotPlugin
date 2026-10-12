@@ -47,5 +47,32 @@ if ($Install) {
         throw "AutoCAD is running. Close AutoCAD before installing the updated plug-in."
     }
 
-    & "$PSScriptRoot\install-user.ps1" -BundlePath $bundle
+    # Both directories can hold a copy, and AutoCAD may load either one.
+    # Update every location that already contains the plug-in so a stale
+    # build cannot keep loading from the other path.
+    $targets = @(
+        (Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\CadHdScreenshot.bundle"),
+        "C:\Program Files (x86)\Autodesk\ApplicationPlugins\CadHdScreenshot.bundle"
+    ) | Where-Object { Test-Path -LiteralPath $_ -PathType Container }
+
+    if (-not $targets) {
+        & "$PSScriptRoot\install-user.ps1" -BundlePath $bundle
+    }
+    else {
+        foreach ($target in $targets) {
+            & "$PSScriptRoot\install-user.ps1" -BundlePath $bundle
+            foreach ($file in @("PackageContents.xml",
+                "Contents\Windows\CadHdScreenshot.Core.dll",
+                "Contents\Windows\CadHdScreenshot.Plugin.dll")) {
+                $source = Join-Path $bundle $file
+                $destination = Join-Path $target $file
+                [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+                Copy-Item -LiteralPath $source -Destination $destination -Force
+                if ((Get-FileHash $source).Hash -ne (Get-FileHash $destination).Hash) {
+                    throw "Hash verification failed: $destination"
+                }
+            }
+            Write-Host "Updated: $target"
+        }
+    }
 }
