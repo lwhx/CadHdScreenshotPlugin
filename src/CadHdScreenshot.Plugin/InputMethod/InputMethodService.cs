@@ -179,8 +179,12 @@ namespace CadHdScreenshot.Plugin.InputMethod
             bool textCommand = command == "TEXT" || command == "DTEXT" || command == "MTEXT" ||
                 command == "MTEDIT" || command == "DDEDIT" || command == "TEXTEDIT" ||
                 command == "TABLEDIT" || command == "ATTEDIT" || command == "EATTEDIT";
-            // Mouse entry into normal CAD uses a native path; it must not wait for UIA recognition.
-            bool pointerPath = pointerInside && !textCommand && (root == mainWindow || root == PanelHandle);
+            // Mouse entry into normal CAD uses a native path; it must not wait for
+            // UIA recognition. AutoCAD's command line is often an Edit child
+            // whose two-level ancestor is not the main window, so checking the
+            // root here makes command input fall into "unconfirmed" preserve
+            // mode even though the pointer is visibly inside CAD.
+            bool pointerPath = pointerInside && !textCommand && root != PanelHandle;
             var snapshot = pointerPath ? null : probe.Poll(focus, foreground);
             if (snapshot == null && !pointerPath) { Status = "已启用 · 等待输入框识别"; Detail = "场景：识别中（保持）"; return; }
             IntPtr drawing = document == null ? IntPtr.Zero : document.Window.Handle;
