@@ -4,33 +4,33 @@ using Autodesk.AutoCAD.EditorInput;
 
 namespace CadHdScreenshot.Plugin
 {
-    internal sealed class ViewStateGuard : IDisposable
-    {
-        private readonly Editor _editor;
-        private ViewTableRecord _view;
+	internal sealed class ViewStateGuard : IDisposable
+	{
+		private readonly Editor _editor;
 
-        public ViewStateGuard(Editor editor)
-        {
-            _editor = editor ?? throw new ArgumentNullException(nameof(editor));
-            _view = editor.GetCurrentView();
-        }
+		private ViewTableRecord _view;
 
-        public void Dispose()
-        {
-            if (_view == null)
-            {
-                return;
-            }
+		public ViewStateGuard(Editor editor)
+		{
+			_editor = editor ?? throw new ArgumentNullException("editor");
+			_view = editor.GetCurrentView();
+		}
 
-            try
-            {
-                _editor.SetCurrentView(_view);
-            }
-            finally
-            {
-                _view.Dispose();
-                _view = null;
-            }
-        }
-    }
+		public void Dispose()
+		{
+			if (_view == null)
+			{
+				return;
+			}
+			try
+			{
+				_editor.SetCurrentView(_view);
+			}
+			finally
+			{
+				_view.Dispose();
+				_view = null;
+			}
+		}
+	}
 }

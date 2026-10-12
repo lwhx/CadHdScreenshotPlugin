@@ -1,30 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
-    <UseWPF>true</UseWPF>
     <AssemblyName>CadHdScreenshot.Plugin</AssemblyName>
-    <RootNamespace>CadHdScreenshot.Plugin</RootNamespace>
-    <AutoCAD2024Dir Condition="'$(AutoCAD2024Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024</AutoCAD2024Dir>
+    <UseWPF>true</UseWPF>
+    <TargetFramework>net48</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CadHdScreenshot.Core\CadHdScreenshot.Core.csproj" />
-    <Reference Include="AcCoreMgd">
-      <HintPath>$(AutoCAD2024Dir)\AcCoreMgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AcDbMgd">
-      <HintPath>$(AutoCAD2024Dir)\AcDbMgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AcMgd">
-      <HintPath>$(AutoCAD2024Dir)\AcMgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AdWindows">
-      <HintPath>$(AutoCAD2024Dir)\AdWindows.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCAD2024Dir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcCoreMgd"><HintPath>$(AutoCAD2024Dir)\AcCoreMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcMgd"><HintPath>$(AutoCAD2024Dir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AdWindows"><HintPath>$(AutoCAD2024Dir)\AdWindows.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
   </ItemGroup>
 </Project>

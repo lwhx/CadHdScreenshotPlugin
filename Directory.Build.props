@@ -1,14 +1,10 @@
-<Project>
+﻿<Project>
   <PropertyGroup>
-    <LangVersion>7.3</LangVersion>
-    <Version>1.2.1</Version>
-    <Nullable>disable</Nullable>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Deterministic>true</Deterministic>
+    <LangVersion>7.3</LangVersion><Version>1.4.2</Version>
+    <AutoCAD2024Dir Condition="'$(AutoCAD2024Dir)' == ''">D:\Program Files\Autodesk\AutoCAD 2024</AutoCAD2024Dir>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48"
-                      Version="1.0.3"
-                      PrivateAssets="All" />
+    <Compile Remove="Properties\AssemblyInfo.cs" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="All" />
   </ItemGroup>
 </Project>

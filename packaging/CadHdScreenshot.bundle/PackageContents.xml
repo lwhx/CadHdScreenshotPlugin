@@ -1,14 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="1.2.1"
-                    ProductCode="{6A79C3E8-611C-4D8E-A92F-14A2D239BA35}"
-                    Name="CadHdScreenshot">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="1.4.2" ProductCode="{6A79C3E8-611C-4D8E-A92F-14A2D239BA35}" Name="CadHdScreenshot">
   <CompanyDetails Name="Local" />
   <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.3" SeriesMax="R24.3" />
   <Components>
-    <ComponentEntry AppName="CadHdScreenshot"
-                    ModuleName="./Contents/Windows/CadHdScreenshot.Plugin.dll"
-                    AppDescription="AutoCAD 2024 HD screenshot plugin"
-                    LoadOnAutoCADStartup="True" />
+    <ComponentEntry AppName="CadHdScreenshot" ModuleName="./Contents/Windows/CadHdScreenshot.Plugin.dll" AppDescription="CAD tools: screenshot, dimension styles, mirrored block text and optional IME switching" LoadOnAutoCADStartup="True" />
   </Components>
 </ApplicationPackage>

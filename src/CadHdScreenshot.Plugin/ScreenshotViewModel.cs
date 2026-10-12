@@ -10,525 +10,545 @@ using CadHdScreenshot.Core;
 
 namespace CadHdScreenshot.Plugin
 {
-    internal sealed class ScreenshotViewModel : INotifyPropertyChanged
-    {
-        private readonly ScreenshotWindow _window;
-        private readonly FileSettingsStore _settingsStore;
-        private readonly CaptureCoordinator _coordinator;
-        private readonly DimensionStyleService _dimensionStyleService;
-        private Choice<double> _selectedScale;
-        private Choice<ImageOutputFormat> _selectedFormat;
-        private Choice<ScreenshotColorMode> _selectedColorMode;
-        private bool _whiteToTransparent;
-        private int _borderPixels;
-        private bool _copyToClipboard;
-        private bool _autoSave;
-        private string _outputDirectory;
-        private string _status;
-        private string _previewWidth;
-        private string _previewHeight;
-        private string _customCommand;
-        private IReadOnlyList<string> _dimensionStyleOptions = new string[0];
-        private string _selectedDimensionStyle;
-        private bool _modifySelectedBlockOnly = true;
-        private bool _isBusy;
+	internal sealed class ScreenshotViewModel : INotifyPropertyChanged
+	{
+		private readonly ScreenshotWindow _window;
 
-        public ScreenshotViewModel(ScreenshotWindow window)
-        {
-            _window = window ?? throw new ArgumentNullException(nameof(window));
-            _settingsStore = FileSettingsStore.CreateForCurrentUser();
-            _coordinator = new CaptureCoordinator();
-            _dimensionStyleService = new DimensionStyleService();
+		private readonly FileSettingsStore _settingsStore;
 
-            ScaleOptions = new[]
-            {
-                new Choice<double>("1×", 1),
-                new Choice<double>("2×（推荐）", 2),
-                new Choice<double>("3×", 3)
-            };
-            FormatOptions = new[]
-            {
-                new Choice<ImageOutputFormat>("PNG", ImageOutputFormat.Png),
-                new Choice<ImageOutputFormat>("JPG", ImageOutputFormat.Jpeg)
-            };
-            ApplySettings(_settingsStore.Load());
-            CaptureOriginalCommand = CreateCaptureCommand(ScreenshotColorMode.Original);
-            CaptureBlackAndWhiteCommand = CreateCaptureCommand(ScreenshotColorMode.BlackAndWhite);
-            CaptureWhiteBackgroundCommand = CreateCaptureCommand(ScreenshotColorMode.WhiteBackground);
-            CaptureGrayscaleCommand = CreateCaptureCommand(ScreenshotColorMode.Grayscale);
-            SaveCustomCommandCommand = CreateOperationCommand(
-                SaveCustomCommandAsync,
-                ReportToolFailure,
-                () => IsCustomCommandValid);
-            RefreshDimensionStylesCommand = CreateOperationCommand(
-                RefreshDimensionStylesAsync,
-                ReportToolFailure);
-            ApplyDimensionStyleCommand = CreateOperationCommand(
-                ApplyDimensionStyleAsync,
-                ReportToolFailure,
-                () => !string.IsNullOrWhiteSpace(SelectedDimensionStyle));
-            Status = "选好清晰度，点击一种效果开始截图。";
-        }
+		private readonly CaptureCoordinator _coordinator;
 
-        public IReadOnlyList<Choice<double>> ScaleOptions { get; }
+		private readonly DimensionStyleService _dimensionStyleService;
 
-        public string VersionLabel => "v" + typeof(ScreenshotViewModel).Assembly.GetName().Version.ToString(3);
+		private readonly MirroredBlockTextService _mirroredBlockTextService;
 
-        public bool IsBusy
-        {
-            get => _isBusy;
-            private set
-            {
-                if (SetField(ref _isBusy, value))
-                {
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIdle)));
-                    foreach (ICommand command in new[]
-                    {
-                        CaptureOriginalCommand, CaptureBlackAndWhiteCommand,
-                        CaptureWhiteBackgroundCommand, CaptureGrayscaleCommand,
-                        SaveCustomCommandCommand, RefreshDimensionStylesCommand, ApplyDimensionStyleCommand
-                    })
-                    {
-                        (command as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-                    }
-                }
-            }
-        }
+		private Choice<double> _selectedScale;
 
-        public bool IsIdle => !IsBusy;
+		private Choice<ImageOutputFormat> _selectedFormat;
 
-        public IReadOnlyList<Choice<ImageOutputFormat>> FormatOptions { get; }
+		private Choice<ScreenshotColorMode> _selectedColorMode;
 
-        public Choice<double> SelectedScale
-        {
-            get => _selectedScale;
-            set
-            {
-                if (SetField(ref _selectedScale, value))
-                {
-                    UpdateOutputSizePreview();
-                }
-            }
-        }
+		private bool _whiteToTransparent;
 
-        public Choice<ImageOutputFormat> SelectedFormat
-        {
-            get => _selectedFormat;
-            set => SetField(ref _selectedFormat, WhiteToTransparent ? FormatOptions.First(item => item.Value == ImageOutputFormat.Png) : value);
-        }
+		private int _borderPixels;
 
-        public Choice<ScreenshotColorMode> SelectedColorMode
-        {
-            get => _selectedColorMode;
-            set => SetField(ref _selectedColorMode, value);
-        }
+		private bool _copyToClipboard;
 
-        public bool WhiteToTransparent
-        {
-            get => _whiteToTransparent;
-            set
-            {
-                if (SetField(ref _whiteToTransparent, value) && value)
-                {
-                    SelectedFormat = FormatOptions.First(item => item.Value == ImageOutputFormat.Png);
-                }
-            }
-        }
+		private bool _autoSave;
 
-        public int BorderPixels
-        {
-            get => _borderPixels;
-            set => SetField(ref _borderPixels, Math.Max(0, value));
-        }
+		private string _outputDirectory;
 
-        public bool CopyToClipboard
-        {
-            get => _copyToClipboard;
-            set => SetField(ref _copyToClipboard, value);
-        }
+		private string _status;
 
-        public bool AutoSave
-        {
-            get => _autoSave;
-            set => SetField(ref _autoSave, value);
-        }
+		private string _previewWidth;
 
-        public string OutputDirectory
-        {
-            get => _outputDirectory;
-            set => SetField(ref _outputDirectory, value);
-        }
+		private string _previewHeight;
 
-        public string Status
-        {
-            get => _status;
-            private set => SetField(ref _status, value);
-        }
+		private string _customCommand;
 
-        public string PreviewWidth
-        {
-            get => _previewWidth;
-            private set => SetField(ref _previewWidth, value);
-        }
+		private IReadOnlyList<string> _dimensionStyleOptions = new string[0];
 
-        public string PreviewHeight
-        {
-            get => _previewHeight;
-            private set => SetField(ref _previewHeight, value);
-        }
+		private string _selectedDimensionStyle;
 
-        public string CustomCommand
-        {
-            get => _customCommand;
-            set
-            {
-                if (SetField(ref _customCommand, value))
-                {
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCustomCommandValid)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CustomCommandHint)));
-                    (SaveCustomCommandCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
-        }
+		private bool _modifySelectedBlockOnly = true;
 
-        public bool IsCustomCommandValid => !string.IsNullOrWhiteSpace(CustomCommand) &&
-            string.Equals(ScreenshotSettings.NormalizeCommandName(CustomCommand, string.Empty),
-                CustomCommand.Trim(), StringComparison.OrdinalIgnoreCase);
+		public IReadOnlyList<Choice<double>> ScaleOptions { get; }
 
-        public string CustomCommandHint => IsCustomCommandValid
-            ? "以英文字母开头，最多 16 位；编辑后点击保存生效。"
-            : "请输入有效命令：字母开头，只能含字母、数字、_ 或 -。";
+		public IReadOnlyList<Choice<ImageOutputFormat>> FormatOptions { get; }
 
-        public string DimensionStylesHint => DimensionStyleOptions.Count == 0
-            ? "暂无可用样式。请打开图纸后点击刷新。"
-            : "已加载 " + DimensionStyleOptions.Count + " 个样式；切换图纸后请刷新。";
+		public Choice<double> SelectedScale
+		{
+			get
+			{
+				return _selectedScale;
+			}
+			set
+			{
+				if (SetField(ref _selectedScale, value, "SelectedScale"))
+				{
+					UpdateOutputSizePreview();
+				}
+			}
+		}
 
-        public IReadOnlyList<string> DimensionStyleOptions
-        {
-            get => _dimensionStyleOptions;
-            private set
-            {
-                if (SetField(ref _dimensionStyleOptions, value))
-                {
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DimensionStylesHint)));
-                }
-            }
-        }
+		public Choice<ImageOutputFormat> SelectedFormat
+		{
+			get
+			{
+				return _selectedFormat;
+			}
+			set
+			{
+				SetField(ref _selectedFormat, WhiteToTransparent ? FormatOptions.First((Choice<ImageOutputFormat> item) => item.Value == ImageOutputFormat.Png) : value, "SelectedFormat");
+			}
+		}
 
-        public string SelectedDimensionStyle
-        {
-            get => _selectedDimensionStyle;
-            set
-            {
-                if (SetField(ref _selectedDimensionStyle, value))
-                {
-                    (ApplyDimensionStyleCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
-        }
+		public Choice<ScreenshotColorMode> SelectedColorMode
+		{
+			get
+			{
+				return _selectedColorMode;
+			}
+			set
+			{
+				SetField(ref _selectedColorMode, value, "SelectedColorMode");
+			}
+		}
 
-        public bool ModifySelectedBlockOnly
-        {
-            get => _modifySelectedBlockOnly;
-            set
-            {
-                if (SetField(ref _modifySelectedBlockOnly, value))
-                {
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ModifyAllSameNameBlocks)));
-                }
-            }
-        }
+		public bool WhiteToTransparent
+		{
+			get
+			{
+				return _whiteToTransparent;
+			}
+			set
+			{
+				if (SetField(ref _whiteToTransparent, value, "WhiteToTransparent") & value)
+				{
+					SelectedFormat = FormatOptions.First((Choice<ImageOutputFormat> item) => item.Value == ImageOutputFormat.Png);
+				}
+			}
+		}
 
-        public bool ModifyAllSameNameBlocks
-        {
-            get => !ModifySelectedBlockOnly;
-            set
-            {
-                if (value)
-                {
-                    ModifySelectedBlockOnly = false;
-                }
-            }
-        }
+		public int BorderPixels
+		{
+			get
+			{
+				return _borderPixels;
+			}
+			set
+			{
+				SetField(ref _borderPixels, Math.Max(0, value), "BorderPixels");
+			}
+		}
 
-        public ICommand CaptureOriginalCommand { get; }
+		public bool CopyToClipboard
+		{
+			get
+			{
+				return _copyToClipboard;
+			}
+			set
+			{
+				SetField(ref _copyToClipboard, value, "CopyToClipboard");
+			}
+		}
 
-        public ICommand CaptureBlackAndWhiteCommand { get; }
+		public bool AutoSave
+		{
+			get
+			{
+				return _autoSave;
+			}
+			set
+			{
+				SetField(ref _autoSave, value, "AutoSave");
+			}
+		}
 
-        public ICommand CaptureWhiteBackgroundCommand { get; }
+		public string OutputDirectory
+		{
+			get
+			{
+				return _outputDirectory;
+			}
+			set
+			{
+				SetField(ref _outputDirectory, value, "OutputDirectory");
+			}
+		}
 
-        public ICommand CaptureGrayscaleCommand { get; }
+		public string Status
+		{
+			get
+			{
+				return _status;
+			}
+			private set
+			{
+				SetField(ref _status, value, "Status");
+			}
+		}
 
-        public ICommand SaveCustomCommandCommand { get; }
+		public string PreviewWidth
+		{
+			get
+			{
+				return _previewWidth;
+			}
+			private set
+			{
+				SetField(ref _previewWidth, value, "PreviewWidth");
+			}
+		}
 
-        public ICommand RefreshDimensionStylesCommand { get; }
+		public string PreviewHeight
+		{
+			get
+			{
+				return _previewHeight;
+			}
+			private set
+			{
+				SetField(ref _previewHeight, value, "PreviewHeight");
+			}
+		}
 
-        public ICommand ApplyDimensionStyleCommand { get; }
+		public string CustomCommand
+		{
+			get
+			{
+				return _customCommand;
+			}
+			set
+			{
+				SetField(ref _customCommand, value, "CustomCommand");
+			}
+		}
 
-        public event PropertyChangedEventHandler PropertyChanged;
+		public IReadOnlyList<string> DimensionStyleOptions
+		{
+			get
+			{
+				return _dimensionStyleOptions;
+			}
+			private set
+			{
+				SetField(ref _dimensionStyleOptions, value, "DimensionStyleOptions");
+			}
+		}
 
-        public async Task InitializeAsync()
-        {
-            try
-            {
-                await RunOperationAsync(() => LoadDimensionStylesAsync(false));
-            }
-            catch (Exception exception)
-            {
-                ReportToolFailure(exception);
-            }
-        }
+		public string SelectedDimensionStyle
+		{
+			get
+			{
+				return _selectedDimensionStyle;
+			}
+			set
+			{
+				if (SetField(ref _selectedDimensionStyle, value, "SelectedDimensionStyle"))
+				{
+					(ApplyDimensionStyleCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+				}
+			}
+		}
 
-        public void SaveSettings()
-        {
-            try
-            {
-                _settingsStore.Save(CreateSettings(
-                    CaptureSourceMode.Region,
-                    SelectedColorMode?.Value ?? ScreenshotColorMode.Original,
-                    CustomCommandRegistry.RegisteredCommand));
-            }
-            catch (IOException)
-            {
-                // Closing AutoCAD must not be blocked by a locked settings file.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Settings are optional; capture errors are reported separately.
-            }
-        }
+		public bool ModifySelectedBlockOnly
+		{
+			get
+			{
+				return _modifySelectedBlockOnly;
+			}
+			set
+			{
+				if (SetField(ref _modifySelectedBlockOnly, value, "ModifySelectedBlockOnly"))
+				{
+					PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("ModifyAllSameNameBlocks"));
+				}
+			}
+		}
 
-        private ICommand CreateCaptureCommand(ScreenshotColorMode colorMode)
-        {
-            return CreateOperationCommand(
-                () => CaptureAsync(CaptureSourceMode.Region, colorMode),
-                ReportCaptureFailure);
-        }
+		public bool ModifyAllSameNameBlocks
+		{
+			get
+			{
+				return !ModifySelectedBlockOnly;
+			}
+			set
+			{
+				if (value)
+				{
+					ModifySelectedBlockOnly = false;
+				}
+			}
+		}
 
-        private ICommand CreateOperationCommand(Func<Task> action, Action<Exception> onError, Func<bool> canExecute = null)
-        {
-            return new AsyncRelayCommand(
-                () => RunOperationAsync(action),
-                () => IsIdle && (canExecute == null || canExecute()),
-                onError);
-        }
+		public ICommand CaptureOriginalCommand { get; }
 
-        private async Task RunOperationAsync(Func<Task> action)
-        {
-            if (IsBusy) return;
-            IsBusy = true;
-            try
-            {
-                await action();
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
+		public ICommand CaptureBlackAndWhiteCommand { get; }
 
-        private Task SaveCustomCommandAsync()
-        {
-            string normalized = ScreenshotSettings.NormalizeCommandName(CustomCommand);
-            if (!string.Equals(normalized, (CustomCommand ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                Status = "命令必须以字母开头，只能包含字母、数字、下划线或短横线，最长 16 个字符";
-                return Task.CompletedTask;
-            }
+		public ICommand CaptureWhiteBackgroundCommand { get; }
 
-            string registered = CustomCommandRegistry.Register(normalized);
-            CustomCommand = registered;
-            ScreenshotSettings settings = CreateSettings(
-                CaptureSourceMode.Region,
-                SelectedColorMode?.Value ?? ScreenshotColorMode.Original,
-                registered);
-            _settingsStore.Save(settings);
-            Status = "自定义命令已保存：" + registered + "（在 CAD 命令行输入即可打开截图窗口）";
-            return Task.CompletedTask;
-        }
+		public ICommand CaptureGrayscaleCommand { get; }
 
-        private Task RefreshDimensionStylesAsync()
-        {
-            return LoadDimensionStylesAsync(true);
-        }
+		public ICommand SaveCustomCommandCommand { get; }
 
-        private async Task LoadDimensionStylesAsync(bool reportStatus)
-        {
-            IReadOnlyList<string> styles = await _dimensionStyleService.GetStyleNamesAsync();
-            string previous = SelectedDimensionStyle;
-            DimensionStyleOptions = styles;
-            SelectedDimensionStyle = styles.FirstOrDefault(
-                name => string.Equals(name, previous, StringComparison.CurrentCultureIgnoreCase))
-                ?? styles.FirstOrDefault();
-            if (reportStatus) Status = DimensionStylesHint;
-        }
+		public ICommand RefreshDimensionStylesCommand { get; }
 
-        private async Task ApplyDimensionStyleAsync()
-        {
-            bool windowHidden = false;
-            try
-            {
-                Status = "请选择标注和图形…";
-                _window.Hide();
-                windowHidden = true;
-                Status = await _dimensionStyleService.ApplyAsync(
-                    SelectedDimensionStyle,
-                    ModifySelectedBlockOnly);
-            }
-            finally
-            {
-                if (windowHidden)
-                {
-                    _window.Dispatcher.Invoke(new Action(() =>
-                    {
-                        if (_window.IsClosed) return;
-                        _window.Show();
-                        _window.Activate();
-                    }));
-                }
-            }
-        }
+		public ICommand ApplyDimensionStyleCommand { get; }
 
-        private async Task CaptureAsync(CaptureSourceMode mode, ScreenshotColorMode colorMode)
-        {
-            bool windowHidden = false;
+		public ICommand FixMirroredBlockTextCommand { get; }
 
-            try
-            {
-                SelectedColorMode = new Choice<ScreenshotColorMode>(colorMode.ToString(), colorMode);
-                ScreenshotSettings settings = CreateSettings(mode, colorMode, CustomCommandRegistry.RegisteredCommand);
-                string settingsWarning = null;
-                try
-                {
-                    _settingsStore.Save(settings);
-                }
-                catch (IOException exception)
-                {
-                    settingsWarning = "设置未保存：" + exception.Message;
-                }
-                catch (UnauthorizedAccessException exception)
-                {
-                    settingsWarning = "设置未保存：" + exception.Message;
-                }
-                Status = "请选择截图范围…";
-                _window.Hide();
-                windowHidden = true;
+		public event PropertyChangedEventHandler PropertyChanged;
 
-                CaptureOutcome outcome = await _coordinator.CaptureAsync(settings);
-                Status = settingsWarning == null ? outcome.Message : outcome.Message + "；" + settingsWarning;
-            }
-            catch (Exception exception)
-            {
-                ReportCaptureFailure(exception);
-            }
-            finally
-            {
-                if (windowHidden)
-                {
-                    // The user may close the modeless window while the CAD command is active.
-                    // Restore on the WPF dispatcher, and never reopen a closed Window.
-                    try
-                    {
-                        _window.Dispatcher.Invoke(new Action(() =>
-                        {
-                            if (_window.IsClosed) return;
-                            _window.Show();
-                            _window.Activate();
-                        }));
-                    }
-                    catch (Exception exception)
-                    {
-                        ReportCaptureFailure(exception);
-                    }
-                }
-            }
-        }
+		public ScreenshotViewModel(ScreenshotWindow window)
+		{
+			_window = window ?? throw new ArgumentNullException("window");
+			_settingsStore = FileSettingsStore.CreateForCurrentUser();
+			_coordinator = new CaptureCoordinator();
+			_dimensionStyleService = new DimensionStyleService();
+			_mirroredBlockTextService = new MirroredBlockTextService();
+			ScaleOptions = new Choice<double>[3]
+			{
+				new Choice<double>("1×", 1.0),
+				new Choice<double>("2×（推荐）", 2.0),
+				new Choice<double>("3×", 3.0)
+			};
+			FormatOptions = new Choice<ImageOutputFormat>[2]
+			{
+				new Choice<ImageOutputFormat>("PNG", ImageOutputFormat.Png),
+				new Choice<ImageOutputFormat>("JPG", ImageOutputFormat.Jpeg)
+			};
+			ApplySettings(_settingsStore.Load());
+			CaptureOriginalCommand = CreateCaptureCommand(ScreenshotColorMode.Original);
+			CaptureBlackAndWhiteCommand = CreateCaptureCommand(ScreenshotColorMode.BlackAndWhite);
+			CaptureWhiteBackgroundCommand = CreateCaptureCommand(ScreenshotColorMode.WhiteBackground);
+			CaptureGrayscaleCommand = CreateCaptureCommand(ScreenshotColorMode.Grayscale);
+			SaveCustomCommandCommand = new AsyncRelayCommand(SaveCustomCommandAsync, null, ReportCaptureFailure);
+			RefreshDimensionStylesCommand = new AsyncRelayCommand(RefreshDimensionStylesAsync, null, ReportToolFailure);
+			ApplyDimensionStyleCommand = new AsyncRelayCommand(ApplyDimensionStyleAsync, () => !string.IsNullOrWhiteSpace(SelectedDimensionStyle), ReportToolFailure);
+			FixMirroredBlockTextCommand = new AsyncRelayCommand(FixMirroredBlockTextAsync, null, ReportToolFailure);
+			Status = "就绪（" + typeof(ScreenshotViewModel).Assembly.GetName().Version.ToString(3) + "）";
+		}
 
-        private void ReportCaptureFailure(Exception exception)
-        {
-            string logPath = CaptureDiagnostics.TryWrite("截图界面", exception);
-            string message = "截图失败：" + exception.Message +
-                (logPath == null ? "；诊断日志写入失败" : "；日志：" + logPath);
-            _window.Dispatcher.Invoke(new Action(() => Status = message));
-        }
+		public async Task InitializeAsync()
+		{
+			try
+			{
+				await RefreshDimensionStylesAsync();
+			}
+			catch (Exception exception)
+			{
+				ReportToolFailure(exception);
+			}
+		}
 
-        private ScreenshotSettings CreateSettings(
-            CaptureSourceMode mode,
-            ScreenshotColorMode colorMode,
-            string customCommand)
-        {
-            return new ScreenshotSettings
-            {
-                CaptureMode = mode,
-                PixelScale = SelectedScale?.Value ?? 2,
-                OutputFormat = ImageOutputFormat.Png,
-                ColorMode = colorMode,
-                WhiteToTransparent = false,
-                BorderPixels = 0,
-                CopyToClipboard = true,
-                AutoSave = false,
-                OutputDirectory = OutputDirectory,
-                JpegQuality = 92,
-                TargetLongEdge = 0,
-                CustomCommand = customCommand
-            }.Normalize();
-        }
+		public void SaveSettings()
+		{
+			try
+			{
+				_settingsStore.Save(CreateSettings(CaptureSourceMode.Region, SelectedColorMode?.Value ?? ScreenshotColorMode.Original, CustomCommand));
+			}
+			catch (IOException)
+			{
+			}
+			catch (UnauthorizedAccessException)
+			{
+			}
+		}
 
-        private void ApplySettings(ScreenshotSettings settings)
-        {
-            ScreenshotSettings normalized = settings.Normalize();
-            double preferredScale = normalized.TargetLongEdge > 0 ? 2 : normalized.PixelScale;
-            SelectedScale = ScaleOptions
-                .OrderBy(item => Math.Abs(item.Value - preferredScale))
-                .First();
-            SelectedFormat = FormatOptions.First(item => item.Value == normalized.OutputFormat);
-            SelectedColorMode = new Choice<ScreenshotColorMode>(
-                normalized.ColorMode.ToString(),
-                normalized.ColorMode);
-            WhiteToTransparent = normalized.WhiteToTransparent;
-            BorderPixels = normalized.BorderPixels;
-            CopyToClipboard = normalized.CopyToClipboard;
-            AutoSave = normalized.AutoSave;
-            OutputDirectory = normalized.OutputDirectory;
-            CustomCommand = CustomCommandRegistry.RegisteredCommand ?? normalized.CustomCommand;
-        }
+		private ICommand CreateCaptureCommand(ScreenshotColorMode colorMode)
+		{
+			return new AsyncRelayCommand(() => CaptureAsync(CaptureSourceMode.Region, colorMode), null, ReportCaptureFailure);
+		}
 
-        private void ReportToolFailure(Exception exception)
-        {
-            string logPath = CaptureDiagnostics.TryWrite("综合工具", exception);
-            string message = "操作失败：" + exception.Message +
-                (logPath == null ? "；诊断日志写入失败" : "；日志：" + logPath);
-            _window.Dispatcher.Invoke(new Action(() => Status = message));
-        }
+		private Task SaveCustomCommandAsync()
+		{
+			string text = ScreenshotSettings.NormalizeCommandName(CustomCommand);
+			if (!string.Equals(text, (CustomCommand ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase))
+			{
+				Status = "命令必须以字母开头，只能包含字母、数字、下划线或短横线，最长 16 个字符";
+				return Task.CompletedTask;
+			}
+			string text2 = (CustomCommand = CustomCommandRegistry.Register(text));
+			ScreenshotSettings settings = CreateSettings(CaptureSourceMode.Region, SelectedColorMode?.Value ?? ScreenshotColorMode.Original, text2);
+			_settingsStore.Save(settings);
+			Status = "自定义命令已保存：" + text2 + "（在 CAD 命令行输入即可打开截图窗口）";
+			return Task.CompletedTask;
+		}
 
-        internal void UpdateOutputSizePreview()
-        {
-            try
-            {
-                PixelSize viewport = ScreenPixelMapper.MeasureViewport();
-                PixelSize target = PixelScaleCalculator.Scale(
-                    viewport,
-                    SelectedScale?.Value ?? 2);
-                PreviewWidth = target.Width.ToString();
-                PreviewHeight = target.Height.ToString();
-            }
-            catch
-            {
-                PreviewWidth = "—";
-                PreviewHeight = "—";
-            }
-        }
+		private async Task RefreshDimensionStylesAsync()
+		{
+			IReadOnlyList<string> readOnlyList = await _dimensionStyleService.GetStyleNamesAsync();
+			string previous = SelectedDimensionStyle;
+			DimensionStyleOptions = readOnlyList;
+			SelectedDimensionStyle = readOnlyList.FirstOrDefault((string name) => string.Equals(name, previous, StringComparison.CurrentCultureIgnoreCase)) ?? readOnlyList.FirstOrDefault();
+			Status = ((readOnlyList.Count == 0) ? "当前图纸没有可用的标注样式" : ("已加载 " + readOnlyList.Count + " 个标注样式"));
+		}
 
-        private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value))
-            {
-                return false;
-            }
+		private async Task ApplyDimensionStyleAsync()
+		{
+			bool windowHidden = false;
+			try
+			{
+				Status = "请选择标注和图形…";
+				_window.Hide();
+				windowHidden = true;
+				Status = await _dimensionStyleService.ApplyAsync(SelectedDimensionStyle, ModifySelectedBlockOnly);
+			}
+			finally
+			{
+				if (windowHidden)
+				{
+					_window.Dispatcher.Invoke(delegate
+					{
+						if (!_window.IsClosed)
+						{
+							_window.Show();
+							_window.Activate();
+						}
+					});
+				}
+			}
+		}
 
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            return true;
-        }
-    }
+		private async Task FixMirroredBlockTextAsync()
+		{
+			bool windowHidden = false;
+			try
+			{
+				Status = "请选择文字反向的镜像块…";
+				_window.Hide();
+				windowHidden = true;
+				Status = await _mirroredBlockTextService.FixAsync();
+			}
+			finally
+			{
+				if (windowHidden)
+				{
+					_window.Dispatcher.Invoke(delegate
+					{
+						if (!_window.IsClosed)
+						{
+							_window.Show();
+							_window.Activate();
+						}
+					});
+				}
+			}
+		}
+
+		private async Task CaptureAsync(CaptureSourceMode mode, ScreenshotColorMode colorMode)
+		{
+			bool windowHidden = false;
+			try
+			{
+				SelectedColorMode = new Choice<ScreenshotColorMode>(colorMode.ToString(), colorMode);
+				ScreenshotSettings settings = CreateSettings(mode, colorMode, CustomCommand);
+				string settingsWarning = null;
+				try
+				{
+					_settingsStore.Save(settings);
+				}
+				catch (IOException ex)
+				{
+					settingsWarning = "设置未保存：" + ex.Message;
+				}
+				catch (UnauthorizedAccessException ex2)
+				{
+					settingsWarning = "设置未保存：" + ex2.Message;
+				}
+				Status = "请选择截图范围…";
+				_window.Hide();
+				windowHidden = true;
+				CaptureOutcome captureOutcome = await _coordinator.CaptureAsync(settings);
+				Status = ((settingsWarning == null) ? captureOutcome.Message : (captureOutcome.Message + "；" + settingsWarning));
+			}
+			catch (Exception exception)
+			{
+				ReportCaptureFailure(exception);
+			}
+			finally
+			{
+				if (windowHidden)
+				{
+					try
+					{
+						_window.Dispatcher.Invoke(delegate
+						{
+							if (!_window.IsClosed)
+							{
+								_window.Show();
+								_window.Activate();
+							}
+						});
+					}
+					catch (Exception exception2)
+					{
+						ReportCaptureFailure(exception2);
+					}
+				}
+			}
+		}
+
+		private void ReportCaptureFailure(Exception exception)
+		{
+			string text = CaptureDiagnostics.TryWrite("截图界面", exception);
+			string message = "截图失败：" + exception.Message + ((text == null) ? "；诊断日志写入失败" : ("；日志：" + text));
+			_window.Dispatcher.Invoke(delegate
+			{
+				Status = message;
+			});
+		}
+
+		private ScreenshotSettings CreateSettings(CaptureSourceMode mode, ScreenshotColorMode colorMode, string customCommand)
+		{
+			return new ScreenshotSettings
+			{
+				CaptureMode = mode,
+				PixelScale = (SelectedScale?.Value ?? 2.0),
+				OutputFormat = ImageOutputFormat.Png,
+				ColorMode = colorMode,
+				WhiteToTransparent = false,
+				BorderPixels = 0,
+				CopyToClipboard = true,
+				AutoSave = false,
+				OutputDirectory = OutputDirectory,
+				JpegQuality = 92,
+				TargetLongEdge = 0,
+				CustomCommand = customCommand
+			}.Normalize();
+		}
+
+		private void ApplySettings(ScreenshotSettings settings)
+		{
+			ScreenshotSettings normalized = settings.Normalize();
+			double preferredScale = ((normalized.TargetLongEdge > 0) ? 2.0 : normalized.PixelScale);
+			SelectedScale = ScaleOptions.OrderBy((Choice<double> item) => Math.Abs(item.Value - preferredScale)).First();
+			SelectedFormat = FormatOptions.First((Choice<ImageOutputFormat> item) => item.Value == normalized.OutputFormat);
+			SelectedColorMode = new Choice<ScreenshotColorMode>(normalized.ColorMode.ToString(), normalized.ColorMode);
+			WhiteToTransparent = normalized.WhiteToTransparent;
+			BorderPixels = normalized.BorderPixels;
+			CopyToClipboard = normalized.CopyToClipboard;
+			AutoSave = normalized.AutoSave;
+			OutputDirectory = normalized.OutputDirectory;
+			CustomCommand = CustomCommandRegistry.RegisteredCommand ?? normalized.CustomCommand;
+		}
+
+		private void ReportToolFailure(Exception exception)
+		{
+			string text = CaptureDiagnostics.TryWrite("综合工具", exception);
+			string message = "操作失败：" + exception.Message + ((text == null) ? "；诊断日志写入失败" : ("；日志：" + text));
+			_window.Dispatcher.Invoke(delegate
+			{
+				Status = message;
+			});
+		}
+
+		private void UpdateOutputSizePreview()
+		{
+			try
+			{
+				PixelSize pixelSize = PixelScaleCalculator.Scale(ScreenPixelMapper.MeasureViewport(), SelectedScale?.Value ?? 2.0);
+				PreviewWidth = pixelSize.Width.ToString();
+				PreviewHeight = pixelSize.Height.ToString();
+			}
+			catch
+			{
+				PreviewWidth = "—";
+				PreviewHeight = "—";
+			}
+		}
+
+		private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+		{
+			if (EqualityComparer<T>.Default.Equals(field, value))
+			{
+				return false;
+			}
+			field = value;
+			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+			return true;
+		}
+	}
 }

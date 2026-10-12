@@ -2,67 +2,70 @@ using System;
 
 namespace CadHdScreenshot.Core
 {
-    public struct PixelSize : IEquatable<PixelSize>
-    {
-        public PixelSize(int width, int height)
-        {
-            if (width <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(width), "Pixel width must be positive.");
-            }
+	public struct PixelSize : IEquatable<PixelSize>
+	{
+		public int Width { get; }
 
-            if (height <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(height), "Pixel height must be positive.");
-            }
+		public int Height { get; }
 
-            Width = width;
-            Height = height;
-        }
+		public long TotalPixels => (long)Width * (long)Height;
 
-        public int Width { get; }
+		public int LongEdge => Math.Max(Width, Height);
 
-        public int Height { get; }
+		public int ShortEdge => Math.Min(Width, Height);
 
-        public long TotalPixels => (long)Width * Height;
+		public double AspectRatio => (double)Width / (double)Height;
 
-        public int LongEdge => Math.Max(Width, Height);
+		public PixelSize(int width, int height)
+		{
+			if (width <= 0)
+			{
+				throw new ArgumentOutOfRangeException("width", "Pixel width must be positive.");
+			}
+			if (height <= 0)
+			{
+				throw new ArgumentOutOfRangeException("height", "Pixel height must be positive.");
+			}
+			Width = width;
+			Height = height;
+		}
 
-        public int ShortEdge => Math.Min(Width, Height);
+		public bool Equals(PixelSize other)
+		{
+			if (Width == other.Width)
+			{
+				return Height == other.Height;
+			}
+			return false;
+		}
 
-        public double AspectRatio => (double)Width / Height;
+		public override bool Equals(object obj)
+		{
+			if (obj is PixelSize other)
+			{
+				return Equals(other);
+			}
+			return false;
+		}
 
-        public bool Equals(PixelSize other)
-        {
-            return Width == other.Width && Height == other.Height;
-        }
+		public override int GetHashCode()
+		{
+			return (Width * 397) ^ Height;
+		}
 
-        public override bool Equals(object obj)
-        {
-            return obj is PixelSize other && Equals(other);
-        }
+		public override string ToString()
+		{
+			return Width + " x " + Height;
+		}
 
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (Width * 397) ^ Height;
-            }
-        }
+		public static bool operator ==(PixelSize left, PixelSize right)
+		{
+			return left.Equals(right);
+		}
 
-        public override string ToString()
-        {
-            return Width + " x " + Height;
-        }
-
-        public static bool operator ==(PixelSize left, PixelSize right)
-        {
-            return left.Equals(right);
-        }
-
-        public static bool operator !=(PixelSize left, PixelSize right)
-        {
-            return !left.Equals(right);
-        }
-    }
+		public static bool operator !=(PixelSize left, PixelSize right)
+		{
+			return !left.Equals(right);
+		}
+	}
 }

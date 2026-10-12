@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net48</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/CadHdScreenshot.Core/CadHdScreenshot.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/CadHdScreenshot.Plugin/InputMethod/ImeSettings.cs" Link="ImeSettings.cs" /></ItemGroup>
+</Project>

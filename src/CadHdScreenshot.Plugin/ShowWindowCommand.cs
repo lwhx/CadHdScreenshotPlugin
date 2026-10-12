@@ -4,22 +4,28 @@ using Autodesk.AutoCAD.ApplicationServices.Core;
 
 namespace CadHdScreenshot.Plugin
 {
-    internal sealed class ShowWindowCommand : ICommand
-    {
-        public bool CanExecute(object parameter)
-        {
-            return Application.DocumentManager.MdiActiveDocument != null;
-        }
+	internal sealed class ShowWindowCommand : ICommand
+	{
+		public event EventHandler CanExecuteChanged
+		{
+			add
+			{
+				CommandManager.RequerySuggested += value;
+			}
+			remove
+			{
+				CommandManager.RequerySuggested -= value;
+			}
+		}
 
-        public void Execute(object parameter)
-        {
-            ScreenshotWindowHost.Show();
-        }
+		public bool CanExecute(object parameter)
+		{
+			return Application.DocumentManager.MdiActiveDocument != null;
+		}
 
-        public event EventHandler CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
-    }
+		public void Execute(object parameter)
+		{
+			ScreenshotWindowHost.Show();
+		}
+	}
 }

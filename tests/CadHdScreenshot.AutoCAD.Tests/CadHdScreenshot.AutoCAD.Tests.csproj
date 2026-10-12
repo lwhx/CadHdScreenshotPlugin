@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>CadHdScreenshot.MirrorRegression</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AcDbMgd"><HintPath>$(AutoCAD2024Dir)\AcDbMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcCoreMgd"><HintPath>$(AutoCAD2024Dir)\AcCoreMgd.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AcMgd"><HintPath>$(AutoCAD2024Dir)\AcMgd.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="../../src/CadHdScreenshot.Plugin/MirroredBlockTextService.cs" Link="MirroredBlockTextService.cs" />
+    <Compile Include="../../src/CadHdScreenshot.Plugin/CommandContextRunner.cs" Link="CommandContextRunner.cs" />
+  </ItemGroup>
+</Project>

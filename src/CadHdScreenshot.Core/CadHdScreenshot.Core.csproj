@@ -1,11 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
     <AssemblyName>CadHdScreenshot.Core</AssemblyName>
-    <RootNamespace>CadHdScreenshot.Core</RootNamespace>
+    <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
+    <TargetFramework>net48</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>7.3</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
   <ItemGroup>
-    <Reference Include="System.Drawing" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 </Project>
