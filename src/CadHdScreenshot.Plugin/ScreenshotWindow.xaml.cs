@@ -16,6 +16,12 @@ namespace CadHdScreenshot.Plugin
 
         internal bool IsClosed { get; private set; }
 
+        protected override void OnActivated(System.EventArgs e)
+        {
+            base.OnActivated(e);
+            _viewModel?.UpdateOutputSizePreview();
+        }
+
         protected override void OnClosed(System.EventArgs e)
         {
             IsClosed = true;

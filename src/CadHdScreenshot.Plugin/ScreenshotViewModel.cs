@@ -31,6 +31,7 @@ namespace CadHdScreenshot.Plugin
         private IReadOnlyList<string> _dimensionStyleOptions = new string[0];
         private string _selectedDimensionStyle;
         private bool _modifySelectedBlockOnly = true;
+        private bool _isBusy;
 
         public ScreenshotViewModel(ScreenshotWindow window)
         {
@@ -55,20 +56,46 @@ namespace CadHdScreenshot.Plugin
             CaptureBlackAndWhiteCommand = CreateCaptureCommand(ScreenshotColorMode.BlackAndWhite);
             CaptureWhiteBackgroundCommand = CreateCaptureCommand(ScreenshotColorMode.WhiteBackground);
             CaptureGrayscaleCommand = CreateCaptureCommand(ScreenshotColorMode.Grayscale);
-            SaveCustomCommandCommand = new AsyncRelayCommand(
+            SaveCustomCommandCommand = CreateOperationCommand(
                 SaveCustomCommandAsync,
-                onError: ReportCaptureFailure);
-            RefreshDimensionStylesCommand = new AsyncRelayCommand(
+                ReportToolFailure,
+                () => IsCustomCommandValid);
+            RefreshDimensionStylesCommand = CreateOperationCommand(
                 RefreshDimensionStylesAsync,
-                onError: ReportToolFailure);
-            ApplyDimensionStyleCommand = new AsyncRelayCommand(
-                ApplyDimensionStyleAsync,
-                () => !string.IsNullOrWhiteSpace(SelectedDimensionStyle),
                 ReportToolFailure);
-            Status = "就绪（" + typeof(ScreenshotViewModel).Assembly.GetName().Version.ToString(3) + "）";
+            ApplyDimensionStyleCommand = CreateOperationCommand(
+                ApplyDimensionStyleAsync,
+                ReportToolFailure,
+                () => !string.IsNullOrWhiteSpace(SelectedDimensionStyle));
+            Status = "选好清晰度，点击一种效果开始截图。";
         }
 
         public IReadOnlyList<Choice<double>> ScaleOptions { get; }
+
+        public string VersionLabel => "v" + typeof(ScreenshotViewModel).Assembly.GetName().Version.ToString(3);
+
+        public bool IsBusy
+        {
+            get => _isBusy;
+            private set
+            {
+                if (SetField(ref _isBusy, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIdle)));
+                    foreach (ICommand command in new[]
+                    {
+                        CaptureOriginalCommand, CaptureBlackAndWhiteCommand,
+                        CaptureWhiteBackgroundCommand, CaptureGrayscaleCommand,
+                        SaveCustomCommandCommand, RefreshDimensionStylesCommand, ApplyDimensionStyleCommand
+                    })
+                    {
+                        (command as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                    }
+                }
+            }
+        }
+
+        public bool IsIdle => !IsBusy;
 
         public IReadOnlyList<Choice<ImageOutputFormat>> FormatOptions { get; }
 
@@ -153,13 +180,39 @@ namespace CadHdScreenshot.Plugin
         public string CustomCommand
         {
             get => _customCommand;
-            set => SetField(ref _customCommand, value);
+            set
+            {
+                if (SetField(ref _customCommand, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCustomCommandValid)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CustomCommandHint)));
+                    (SaveCustomCommandCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
         }
+
+        public bool IsCustomCommandValid => !string.IsNullOrWhiteSpace(CustomCommand) &&
+            string.Equals(ScreenshotSettings.NormalizeCommandName(CustomCommand, string.Empty),
+                CustomCommand.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        public string CustomCommandHint => IsCustomCommandValid
+            ? "以英文字母开头，最多 16 位；编辑后点击保存生效。"
+            : "请输入有效命令：字母开头，只能含字母、数字、_ 或 -。";
+
+        public string DimensionStylesHint => DimensionStyleOptions.Count == 0
+            ? "暂无可用样式。请打开图纸后点击刷新。"
+            : "已加载 " + DimensionStyleOptions.Count + " 个样式；切换图纸后请刷新。";
 
         public IReadOnlyList<string> DimensionStyleOptions
         {
             get => _dimensionStyleOptions;
-            private set => SetField(ref _dimensionStyleOptions, value);
+            private set
+            {
+                if (SetField(ref _dimensionStyleOptions, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DimensionStylesHint)));
+                }
+            }
         }
 
         public string SelectedDimensionStyle
@@ -218,7 +271,7 @@ namespace CadHdScreenshot.Plugin
         {
             try
             {
-                await RefreshDimensionStylesAsync();
+                await RunOperationAsync(() => LoadDimensionStylesAsync(false));
             }
             catch (Exception exception)
             {
@@ -233,7 +286,7 @@ namespace CadHdScreenshot.Plugin
                 _settingsStore.Save(CreateSettings(
                     CaptureSourceMode.Region,
                     SelectedColorMode?.Value ?? ScreenshotColorMode.Original,
-                    CustomCommand));
+                    CustomCommandRegistry.RegisteredCommand));
             }
             catch (IOException)
             {
@@ -247,9 +300,31 @@ namespace CadHdScreenshot.Plugin
 
         private ICommand CreateCaptureCommand(ScreenshotColorMode colorMode)
         {
-            return new AsyncRelayCommand(
+            return CreateOperationCommand(
                 () => CaptureAsync(CaptureSourceMode.Region, colorMode),
-                onError: ReportCaptureFailure);
+                ReportCaptureFailure);
+        }
+
+        private ICommand CreateOperationCommand(Func<Task> action, Action<Exception> onError, Func<bool> canExecute = null)
+        {
+            return new AsyncRelayCommand(
+                () => RunOperationAsync(action),
+                () => IsIdle && (canExecute == null || canExecute()),
+                onError);
+        }
+
+        private async Task RunOperationAsync(Func<Task> action)
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                await action();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         private Task SaveCustomCommandAsync()
@@ -272,7 +347,12 @@ namespace CadHdScreenshot.Plugin
             return Task.CompletedTask;
         }
 
-        private async Task RefreshDimensionStylesAsync()
+        private Task RefreshDimensionStylesAsync()
+        {
+            return LoadDimensionStylesAsync(true);
+        }
+
+        private async Task LoadDimensionStylesAsync(bool reportStatus)
         {
             IReadOnlyList<string> styles = await _dimensionStyleService.GetStyleNamesAsync();
             string previous = SelectedDimensionStyle;
@@ -280,9 +360,7 @@ namespace CadHdScreenshot.Plugin
             SelectedDimensionStyle = styles.FirstOrDefault(
                 name => string.Equals(name, previous, StringComparison.CurrentCultureIgnoreCase))
                 ?? styles.FirstOrDefault();
-            Status = styles.Count == 0
-                ? "当前图纸没有可用的标注样式"
-                : "已加载 " + styles.Count + " 个标注样式";
+            if (reportStatus) Status = DimensionStylesHint;
         }
 
         private async Task ApplyDimensionStyleAsync()
@@ -318,7 +396,7 @@ namespace CadHdScreenshot.Plugin
             try
             {
                 SelectedColorMode = new Choice<ScreenshotColorMode>(colorMode.ToString(), colorMode);
-                ScreenshotSettings settings = CreateSettings(mode, colorMode, CustomCommand);
+                ScreenshotSettings settings = CreateSettings(mode, colorMode, CustomCommandRegistry.RegisteredCommand);
                 string settingsWarning = null;
                 try
                 {
@@ -423,7 +501,7 @@ namespace CadHdScreenshot.Plugin
             _window.Dispatcher.Invoke(new Action(() => Status = message));
         }
 
-        private void UpdateOutputSizePreview()
+        internal void UpdateOutputSizePreview()
         {
             try
             {
