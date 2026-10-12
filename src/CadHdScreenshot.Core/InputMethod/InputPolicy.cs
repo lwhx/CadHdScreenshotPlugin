@@ -106,7 +106,16 @@ namespace CadHdScreenshot.Core.InputMethod
             // The target thread applies an input-language request
             // asynchronously, so a confirmed write can still report Unknown.
             // Trust the write and let the next poll observe the settled state.
-            else if (success && verified == InputMode.Unknown) pending = InputMode.Unknown;
+            else if (success && verified == InputMode.Unknown)
+            {
+                // WM_INPUTLANGCHANGEREQUEST is asynchronous. Keep the
+                // semantic session eligible for a follow-up observation
+                // instead of permanently marking the attempt complete.
+                attempted = false;
+                pending = InputMode.Unknown;
+                stableSince = milliseconds;
+                nextAttempt = milliseconds + 150;
+            }
             else nextAttempt = Math.Max(nextAttempt, milliseconds + 1500);
         }
 

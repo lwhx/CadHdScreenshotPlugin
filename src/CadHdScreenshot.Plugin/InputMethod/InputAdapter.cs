@@ -60,6 +60,27 @@ namespace CadHdScreenshot.Plugin.InputMethod
         private static bool IsChineseLayout(IntPtr layout)
         { return ((long)layout & 0x3ff) == 4; }
 
+        private static bool IsEnglishHkl(IntPtr layout)
+        {
+            ulong value = unchecked((ulong)layout.ToInt64());
+            uint language = (uint)(value & 0xffff);
+            uint keyboard = (uint)(value >> 16);
+            // Windows commonly exposes the US keyboard under the Chinese
+            // language profile as 0x04090804, not 0x04090409.
+            return language == 0x0409 || (language == 0x0804 && keyboard == 0x0409);
+        }
+
+        private static IntPtr FindEnglishLayout()
+        {
+            int count = NativeInput.GetKeyboardLayoutList(0, null);
+            if (count <= 0) return IntPtr.Zero;
+            var layouts = new IntPtr[count];
+            NativeInput.GetKeyboardLayoutList(count, layouts);
+            foreach (var layout in layouts)
+                if (IsEnglishHkl(layout)) return layout;
+            return IntPtr.Zero;
+        }
+
         private static IntPtr FindChineseLayout()
         {
             int count = NativeInput.GetKeyboardLayoutList(0, null);
@@ -92,14 +113,9 @@ namespace CadHdScreenshot.Plugin.InputMethod
             return ((long)NativeInput.GetKeyboardLayout(focusThread) & 0x3ff) == 4;
         }
 
-        // English (US) layout HKL. Chinese profiles are kept as the exact HKL
-        // observed on each application thread, because that preserves WeChat,
-        // Sogou, or Microsoft Pinyin selection.
-        private const uint EnglishLayout = 0x04090409;
-
         private static bool IsEnglishLayout(uint focusThread)
         {
-            return (uint)NativeInput.GetKeyboardLayout(focusThread) == EnglishLayout;
+            return IsEnglishHkl(NativeInput.GetKeyboardLayout(focusThread));
         }
 
         /// <summary>
@@ -112,7 +128,7 @@ namespace CadHdScreenshot.Plugin.InputMethod
         {
             var current = NativeInput.GetKeyboardLayout(focusThread);
             IntPtr desired = target == InputMode.English
-                ? new IntPtr(unchecked((int)EnglishLayout))
+                ? FindEnglishLayout()
                 : (chineseLayouts.ContainsKey(focusThread) ? chineseLayouts[focusThread] : FindChineseLayout());
             if (desired == IntPtr.Zero || current == desired) return desired != IntPtr.Zero;
 
