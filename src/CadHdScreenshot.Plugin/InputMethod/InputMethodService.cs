@@ -206,7 +206,11 @@ namespace CadHdScreenshot.Plugin.InputMethod
             if (isInplace && !inplace) editorSession++;
             inplace = isInplace;
             bool commandLine = snapshot != null && snapshot.CommandLine;
-            bool dialog = root != mainWindow && root != PanelHandle && !drawingFocus && !commandLine;
+            // A native pointer path is authoritative for normal CAD input.
+            // Its focused child can look like a dialog to the root-handle
+            // heuristic, but it must still be treated as drawing input.
+            bool dialog = !pointerPath && root != mainWindow && root != PanelHandle &&
+                !drawingFocus && !commandLine;
             var context = InputClassifier.Classify(new FocusFacts
             {
                 Owned = true, Dialog = dialog, FileName = snapshot != null && snapshot.FileName,
